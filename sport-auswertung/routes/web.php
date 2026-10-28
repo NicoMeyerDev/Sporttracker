@@ -1,6 +1,8 @@
 <?php
 
+#import(s)
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PingController; 
 
 Route::inertia('/', 'Welcome')->name('home');
 
@@ -10,7 +12,8 @@ Route::inertia('/', 'Welcome')->name('home');
 #    return ANTWORT;
 #});
 
+#Bessere Route mit verbindung zum Controller
+#Route::get('/ping', [KLASSE::class, 'METHODE']);
 
-Route::get('/ping', function () {
-    return ['status' => 'ok'];
-});
+
+Route::get('/ping', [PingController::class, 'index']);
