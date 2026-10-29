@@ -3,6 +3,7 @@
 #import(s)
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PingController; 
+use App\Http\Controllers\ActivityController;
 
 Route::inertia('/', 'Welcome')->name('home');
 
@@ -17,3 +18,4 @@ Route::inertia('/', 'Welcome')->name('home');
 
 
 Route::get('/ping', [PingController::class, 'index']);
+Route::get('/activities', [ActivityController::class, 'index']);
