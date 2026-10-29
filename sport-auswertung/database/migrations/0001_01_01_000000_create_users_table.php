@@ -7,18 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
-     */
+    * Legt die Tabelle "activities" an (bei php artisan migrate).
+    */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
+        Schema::create('activities', function (Blueprint $table) {
+            $table->id();                    // Eindeutige Nummer pro Zeile
+            $table->string("type");          // Art der Einheit, z. B. Training oder Spiel
+            $table->dateTime("started_at");  // Beginn, Datum mit Uhrzeit
+            $table->integer("distance_m");   // Distanz in Metern (ganze Zahl)
+            $table->timestamps();            // created_at und updated_at, setzt Laravel selbst
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
