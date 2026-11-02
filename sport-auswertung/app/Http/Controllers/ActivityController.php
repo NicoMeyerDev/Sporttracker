@@ -19,4 +19,14 @@ class ActivityController extends Controller
     {
         return Activity::all();
     }
+
+     public function summary()
+    {
+        return Activity::select('sport')
+            ->selectRaw('COUNT(*) as anzahl')
+            ->selectRaw('SUM(distance_m) as gesamt_distanz_m')
+            ->selectRaw('ROUND(AVG(avg_hr)) as durchschnitt_puls')
+            ->groupBy('sport')
+            ->get();
+    }
 }

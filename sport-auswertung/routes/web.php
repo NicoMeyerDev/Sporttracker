@@ -22,3 +22,6 @@ Route::get('/ping', [PingController::class, 'index']);
 // Liste aller gespeicherten Einheiten (Training/Spiel) als JSON.
 // Ablauf: Browser -> Route -> ActivityController::index -> Model -> Datenbank
 Route::get('/activities', [ActivityController::class, 'index']);
+
+//
+Route::get('/summary', [ActivityController::class, 'summary']);
