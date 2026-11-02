@@ -22,10 +22,10 @@ class ActivityController extends Controller
 
 
     /**
- * Fasst alle Einheiten pro Sportart zusammen.
- * groupBy('sport') bildet Gruppen, COUNT, SUM und AVG rechnen pro Gruppe.
- * Leere Werte (null) ignoriert AVG automatisch, z. B. fehlende Pulswerte beim Schwimmen.
- */
+    * Fasst alle Einheiten pro Sportart zusammen.
+    * groupBy('sport') bildet Gruppen, COUNT, SUM und AVG rechnen pro Gruppe.
+    * Leere Werte (null) ignoriert AVG automatisch, z. B. fehlende Pulswerte beim Schwimmen.
+     */
     
      public function summary()
     {
@@ -36,4 +36,16 @@ class ActivityController extends Controller
             ->groupBy('sport')
             ->get();
     }
+
+
+    /**
+    * Gibt alle Einheiten nach Beginn sortiert zurück (älteste zuerst).
+    * Es werden nur die Felder geladen, die ein Zeitverlauf braucht.
+    */
+    public function timeline()
+   {
+       return Activity::select('sport', 'type', 'started_at', 'distance_m', 'avg_hr')
+           ->orderBy('started_at')
+           ->get();
+   }
 }

@@ -23,5 +23,11 @@ Route::get('/ping', [PingController::class, 'index']);
 // Ablauf: Browser -> Route -> ActivityController::index -> Model -> Datenbank
 Route::get('/activities', [ActivityController::class, 'index']);
 
-//
+// Auswertung pro Sportart als JSON: Anzahl der Einheiten, Gesamtdistanz und Durchschnittspuls.
+// Ablauf: Browser -> Route -> ActivityController::summary -> Datenbank (groupBy sport) 
 Route::get('/summary', [ActivityController::class, 'summary']);
+
+
+// Verlauf aller Einheiten als JSON, sortiert nach Beginn (älteste zuerst).
+// Wird für Diagramme über die Zeit gebraucht.
+Route::get('/timeline', [ActivityController::class, 'timeline']);
