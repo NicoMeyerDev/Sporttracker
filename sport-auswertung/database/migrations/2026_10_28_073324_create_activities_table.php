@@ -7,21 +7,34 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Legt die Tabelle "activities" an (bei php artisan migrate).
      */
     public function up(): void
     {
         Schema::create('activities', function (Blueprint $table) {
-            $table->id();
-            $table->string("type");
-            $table->dateTime("started_at");
-            $table->integer("distance_m");
-            $table->timestamps();
+            $table->id();                                // Eindeutige Nummer pro Zeile
+
+            // Wird von dir gesetzt (Garmin liefert das nicht zuverlässig)
+            $table->string("sport");                     // Sportart, fest und klein: football, cycling, swimming
+            $table->string("type");                      // Art der Einheit: Training oder Spiel
+
+            // Pflichtangaben
+            $table->dateTime("started_at");              // Beginn mit Datum und Uhrzeit (Garmin liefert UTC)
+            $table->integer("distance_m");               // Distanz in Metern
+
+            // Messwerte aus der TCX-Datei, optional (nicht jede Einheit liefert alle)
+            $table->integer("duration_s")->nullable();   // Dauer in Sekunden
+            $table->float("max_speed_ms")->nullable();   // Höchstgeschwindigkeit in Metern pro Sekunde
+            $table->integer("calories")->nullable();     // Verbrannte Kalorien (kcal)
+            $table->integer("avg_hr")->nullable();       // Durchschnittspuls in Schlägen pro Minute
+            $table->integer("max_hr")->nullable();       // Maximalpuls in Schlägen pro Minute
+
+            $table->timestamps();                        // created_at und updated_at, setzt Laravel selbst
         });
     }
 
     /**
-     * Reverse the migrations.
+     * Löscht die Tabelle wieder (bei php artisan migrate:rollback).
      */
     public function down(): void
     {

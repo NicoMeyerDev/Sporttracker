@@ -7,30 +7,19 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-    * Legt die Tabelle "activities" an (bei php artisan migrate).
-    */
+     * Legt die Standardtabellen von Laravel an: Benutzer, Passwort-Zurücksetzen und Sitzungen.
+     */
     public function up(): void
     {
-        Schema::create('activities', function (Blueprint $table) {
-            $table->id();                                // Eindeutige Nummer pro Zeile
-
-            // Wird von dir gesetzt (Garmin liefert das nicht zuverlässig)
-            $table->string("sport");                     // Sportart, fest und klein: football, cycling, swimming
-            $table->string("type");                      // Art der Einheit: Training oder Spiel
-
-            // Pflichtangaben
-            $table->dateTime("started_at");              // Beginn mit Datum und Uhrzeit (Garmin liefert UTC)
-            $table->integer("distance_m");               // Distanz in Metern
-
-            // Messwerte aus der TCX-Datei, optional (nicht jede Einheit liefert alle)
-            $table->integer("duration_s")->nullable();   // Dauer in Sekunden
-            $table->float("max_speed_ms")->nullable();   // Höchstgeschwindigkeit in Metern pro Sekunde
-            $table->integer("calories")->nullable();     // Verbrannte Kalorien (kcal)
-            $table->integer("avg_hr")->nullable();       // Durchschnittspuls in Schlägen pro Minute
-            $table->integer("max_hr")->nullable();       // Maximalpuls in Schlägen pro Minute
-
-            $table->timestamps();                        // created_at und updated_at, setzt Laravel selbst
-});
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password');
+            $table->rememberToken();
+            $table->timestamps();
+        });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
@@ -49,7 +38,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Löscht die Tabellen wieder (bei php artisan migrate:rollback).
      */
     public function down(): void
     {
