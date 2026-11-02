@@ -20,6 +20,13 @@ class ActivityController extends Controller
         return Activity::all();
     }
 
+
+    /**
+ * Fasst alle Einheiten pro Sportart zusammen.
+ * groupBy('sport') bildet Gruppen, COUNT, SUM und AVG rechnen pro Gruppe.
+ * Leere Werte (null) ignoriert AVG automatisch, z. B. fehlende Pulswerte beim Schwimmen.
+ */
+    
      public function summary()
     {
         return Activity::select('sport')
