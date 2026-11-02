@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sport-Auswertung</title>
+
+<!--
+  Dashboard für die Sport-Auswertung.
+  Ablauf: Browser lädt diese Datei -> JavaScript ruft /summary und /timeline
+  deiner Laravel-API auf -> Chart.js zeichnet die Diagramme.
+  Ablegen unter: public/dashboard.html
+  Öffnen unter:  http://127.0.0.1:8000/dashboard.html (php artisan serve muss laufen)
+-->
+
+<style>
+  :root {
+    --paper: #f3f5f2;
+    --ink: #14231c;
+    --muted: #5b6b62;
+    --line: #d4dbd5;
+    --c-football: #2e7d4f;
+    --c-cycling: #c07a12;
+    --c-swimming: #2b6cb0;
+    --c-other: #7a8780;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121a16;
+      --ink: #e8eee9;
+      --muted: #9fb0a6;
+      --line: #2c3a33;
+      --c-football: #5cc28a;
+      --c-cycling: #e3a448;
+      --c-swimming: #6aa8e6;
+      --c-other: #94a39a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    padding: 2.5rem 1.25rem 4rem;
+    color: var(--ink);
+    background: var(--paper);
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+
+  h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 .25rem; font-weight: 700; letter-spacing: -.01em; }
+  h2 { font-size: 1.05rem; margin: 0 0 .75rem; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 2rem; max-width: 40rem; }
+
+  /* Kennzahlen: nebeneinander, ohne Karten */
+  .stats { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; margin: 0 0 2.5rem; padding: 0; list-style: none; }
+  .stat-value { display: block; font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat-label { color: var(--muted); font-size: .9rem; }
+
+  section { margin: 0 0 2.75rem; }
+  .hero { padding-top: 1.25rem; border-top: 3px solid var(--c-football); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+  .pair section { margin: 0; padding-top: 1rem; border-top: 1px solid var(--line); }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; gap: 2.5rem; } }
+
+  .chart-box { position: relative; height: 18rem; }
+  .hero .chart-box { height: 22rem; }
+  .hint { color: var(--muted); font-size: .88rem; margin: .5rem 0 0; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: .55rem .75rem .55rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 600; color: var(--muted); font-size: .9rem; }
+  td.num, th.num { text-align: right; padding-right: 1rem; }
+  .dot { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin-right: .45rem; }
+
+  #status { padding: 1rem 1.25rem; border-left: 4px solid var(--c-cycling); background: color-mix(in srgb, var(--c-cycling) 12%, transparent); margin-bottom: 2rem; }
+  #status[hidden] { display: none; }
+
+  :focus-visible { outline: 3px solid var(--c-swimming); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sport-Auswertung</h1>
+  <p class="sub">Deine Einheiten aus Garmin im Überblick: Fußball, Rad und Schwimmen.</p>
+
+  <div id="status" role="alert" hidden></div>
+
+  <ul class="stats" aria-label="Kennzahlen">
+    <li><span class="stat-value" id="stat-count">–</span><span class="stat-label">Einheiten</span></li>
+    <li><span class="stat-value" id="stat-km">–</span><span class="stat-label">Kilometer gesamt</span></li>
+    <li><span class="stat-value" id="stat-hr">–</span><span class="stat-label">Ø Puls je Einheit</span></li>
+    <li><span class="stat-value" id="stat-last">–</span><span class="stat-label">Letzte Einheit</span></li>
+  </ul>
+
+  <section class="hero">
+    <h2>Distanz je Einheit im Zeitverlauf</h2>
+    <div class="chart-box"><canvas id="chart-timeline" role="img" aria-label="Liniendiagramm: Distanz je Einheit in Kilometern über die Zeit, getrennt nach Sportart"></canvas></div>
+    <p class="hint">Jeder Punkt ist eine Einheit. Die Linie verbindet Einheiten derselben Sportart.</p>
+  </section>
+
+  <div class="pair">
+    <section>
+      <h2>Gesamtdistanz je Sportart</h2>
+      <div class="chart-box"><canvas id="chart-sport" role="img" aria-label="Balkendiagramm: Gesamtdistanz in Kilometern je Sportart"></canvas></div>
+      <p class="hint" id="hint-sport"></p>
+    </section>
+    <section>
+      <h2>Durchschnittspuls je Einheit</h2>
+      <div class="chart-box"><canvas id="chart-hr" role="img" aria-label="Liniendiagramm: Durchschnittspuls je Einheit in Schlägen pro Minute"></canvas></div>
+      <p class="hint">Einheiten ohne Pulswert fehlen im Diagramm.</p>
+    </section>
+  </div>
+
+  <section>
+    <h2>Alle Einheiten</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Datum</th>
+            <th scope="col">Sportart</th>
+            <th scope="col">Art</th>
+            <th scope="col" class="num">Distanz (km)</th>
+            <th scope="col" class="num">Ø Puls</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Chart.js: Bibliothek zum Zeichnen der Diagramme (feste Version) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  // Namen und Farben je Sportart. Neue Sportart? Hier ergänzen.
+  const SPORTS = {
+    football: { label: 'Fußball',    color: '--c-football' },
+    cycling:  { label: 'Rad',        color: '--c-cycling' },
+    swimming: { label: 'Schwimmen',  color: '--c-swimming' },
+  };
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const sportLabel = (s) => (SPORTS[s] ? SPORTS[s].label : s);
+  const sportColor = (s) => css(SPORTS[s] ? SPORTS[s].color : '--c-other');
+
+  // Die API liefert Zeiten in UTC als "2026-10-13 17:31:55". Hier in Ortszeit umwandeln.
+  function parseUtc(text) {
+    return new Date(text.includes('T') ? text : text.replace(' ', 'T') + 'Z');
+  }
+  const fmtShort = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  const fmtLong  = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const fmtNum   = (n, digits = 1) => n.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+  function showError(message) {
+    const box = document.getElementById('status');
+    box.textContent = message;
+    box.hidden = false;
+  }
+
+  async function load(path) {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error(path + ' antwortet mit Status ' + response.status);
+    return response.json();
+  }
+
+  function styleCharts() {
+    Chart.defaults.color = css('--muted');
+    Chart.defaults.borderColor = css('--line');
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) Chart.defaults.animation = false;
+  }
+
+  // Ein Datensatz pro Sportart. Wo die Sportart keine Einheit hat, steht null (Lücke).
+  function datasetsPerSport(activities, valueOf) {
+    const sports = [...new Set(activities.map((a) => a.sport))];
+    return sports.map((sport) => ({
+      label: sportLabel(sport),
+      data: activities.map((a) => (a.sport === sport ? valueOf(a) : null)),
+      borderColor: sportColor(sport),
+      backgroundColor: sportColor(sport),
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2,
+      spanGaps: true,
+      tension: 0.2,
+    }));
+  }
+
+  function drawKpis(activities) {
+    const km = activities.reduce((sum, a) => sum + a.distance_m, 0) / 1000;
+    const pulses = activities.map((a) => a.avg_hr).filter((v) => v !== null);
+    const avgHr = pulses.length ? Math.round(pulses.reduce((s, v) => s + v, 0) / pulses.length) : null;
+    const last = activities.length ? parseUtc(activities[activities.length - 1].started_at) : null;
+
+    document.getElementById('stat-count').textContent = activities.length;
+    document.getElementById('stat-km').textContent = fmtNum(km);
+    document.getElementById('stat-hr').textContent = avgHr === null ? '–' : avgHr;
+    document.getElementById('stat-last').textContent = last ? fmtShort(last) : '–';
+  }
+
+  function drawTimeline(activities) {
+    new Chart(document.getElementById('chart-timeline'), {
+      type: 'line',
+      data: {
+        labels: activities.map((a) => fmtShort(parseUtc(a.started_at))),
+        datasets: datasetsPerSport(activities, (a) => a.distance_m / 1000),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Kilometer' } } },
+        plugins: { tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + fmtNum(c.parsed.y) + ' km' } } },
+      },
+    });
+  }
+
+  function drawSport(summary) {
+    new Chart(document.getElementById('chart-sport'), {
+      type: 'bar',
+      data: {
+        labels: summary.map((s) => sportLabel(s.sport)),
+        datasets: [{
+          data: summary.map((s) => Number(s.gesamt_distanz_m) / 1000),
+          backgroundColor: summary.map((s) => sportColor(s.sport)),
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Kilometer' } } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => fmtNum(c.parsed.y) + ' km in ' + summary[c.dataIndex].anzahl + ' Einheiten' } },
+        },
+      },
+    });
+    document.getElementById('hint-sport').textContent =
+      'Beim Darüberfahren siehst du, wie viele Einheiten dahinterstecken.';
+  }
+
+  function drawHr(activities) {
+    new Chart(document.getElementById('chart-hr'), {
+      type: 'line',
+      data: {
+        labels: activities.map((a) => fmtShort(parseUtc(a.started_at))),
+        datasets: datasetsPerSport(activities, (a) => a.avg_hr),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { title: { display: true, text: 'Schläge pro Minute' } } },
+        plugins: { tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y + ' bpm' } } },
+      },
+    });
+  }
+
+  function drawTable(activities) {
+    const body = document.getElementById('table-body');
+    [...activities].reverse().forEach((a) => {
+      const row = body.insertRow();
+      row.insertCell().textContent = fmtLong(parseUtc(a.started_at));
+
+      const sportCell = row.insertCell();
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = sportColor(a.sport);
+      sportCell.append(dot, sportLabel(a.sport));
+
+      row.insertCell().textContent = a.type;
+
+      const km = row.insertCell();
+      km.className = 'num';
+      km.textContent = fmtNum(a.distance_m / 1000);
+
+      const hr = row.insertCell();
+      hr.className = 'num';
+      hr.textContent = a.avg_hr === null ? '–' : a.avg_hr;
+    });
+  }
+
+  async function init() {
+    try {
+      const [summary, timeline] = await Promise.all([load('/summary'), load('/timeline')]);
+      if (timeline.length === 0) {
+        showError('Noch keine Einheiten gespeichert. Importiere eine Garmin-Datei mit php artisan import:tcx.');
+        return;
+      }
+      styleCharts();
+      drawKpis(timeline);
+      drawTimeline(timeline);
+      drawSport(summary);
+      drawHr(timeline);
+      drawTable(timeline);
+    } catch (error) {
+      showError('Die API ist nicht erreichbar. Läuft php artisan serve, und öffnest du die Seite über http://127.0.0.1:8000/dashboard.html? (' + error.message + ')');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
